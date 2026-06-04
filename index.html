@@ -1,10 +1,9 @@
-```jsx
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Home, Search, PlusSquare, Heart, User, Settings, 
   MoreHorizontal, Bookmark, Send, MessageCircle, Share2, 
   LogOut, X, ChevronLeft, Filter, Activity, Eye, Lock,
-  Smartphone, Bell, Globe, Moon, Sun, Sparkles, Zap
+  Smartphone, Bell, Globe, Moon, Sun, Sparkles, Zap, RefreshCw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -134,19 +133,30 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [activeTab, setActiveTab] = useState('home'); // home, search, create, activity, profile
   const [posts, setPosts] = useState(INITIAL_POSTS);
-  const [likedPosts, setLikedPosts] = useState(new Set());
   
-  // The "Algorithm" State - Tracking Micro-activities
-  const [userInterests, setUserInterests] = useState({
-    nature: 1,
-    tech: 1,
-    food: 1,
-    gaming: 1,
-    art: 1,
-    travel: 1
+  // Initialize state from LocalStorage if available
+  const [likedPosts, setLikedPosts] = useState(() => {
+    const saved = localStorage.getItem('pulse_likes');
+    return saved ? new Set(JSON.parse(saved)) : new Set();
+  });
+  
+  const [userInterests, setUserInterests] = useState(() => {
+    const saved = localStorage.getItem('pulse_interests');
+    return saved ? JSON.parse(saved) : {
+      nature: 1, tech: 1, food: 1, gaming: 1, art: 1, travel: 1
+    };
   });
   
   const [activityLog, setActivityLog] = useState([]);
+
+  // Persist State to LocalStorage
+  useEffect(() => {
+    localStorage.setItem('pulse_likes', JSON.stringify(Array.from(likedPosts)));
+  }, [likedPosts]);
+
+  useEffect(() => {
+    localStorage.setItem('pulse_interests', JSON.stringify(userInterests));
+  }, [userInterests]);
 
   // Algorithm Logic: Update interests based on interaction
   const trackActivity = (type, contentTags) => {
@@ -157,7 +167,8 @@ export default function App() {
       setUserInterests(prev => {
         const updated = { ...prev };
         contentTags.forEach(tag => {
-          const key = Object.keys(updated).find(k => tag.includes(k));
+          // Simple fuzzy match for demo purposes
+          const key = Object.keys(updated).find(k => tag.toLowerCase().includes(k));
           if (key) {
             updated[key] = (updated[key] || 0) + (type === 'like' ? 2 : type === 'view' ? 0.5 : 1);
           }
@@ -174,6 +185,8 @@ export default function App() {
   const handleLogout = () => {
     setUser(null);
     setActiveTab('home');
+    // Optional: Clear data on logout
+    // localStorage.clear();
   };
 
   const renderContent = () => {
@@ -286,6 +299,7 @@ const NavIcon = ({ icon: Icon, isActive, onClick, highlight }) => (
 );
 
 const HomeFeed = ({ posts, userInterests, onLike, likedPosts, trackActivity }) => {
+  // Sort posts by interest score
   const sortedPosts = [...posts].sort((a, b) => {
     let scoreA = 0;
     let scoreB = 0;
@@ -343,6 +357,16 @@ const HomeFeed = ({ posts, userInterests, onLike, likedPosts, trackActivity }) =
             onView={() => trackActivity('view', post.tags)}
           />
         ))}
+        
+        {/* Load More Simulation */}
+        <div className="py-8 flex justify-center">
+           <button 
+             onClick={() => alert("In a real app, this would fetch more posts!")}
+             className="flex items-center gap-2 text-gray-500 hover:text-white transition-colors text-sm font-medium"
+           >
+             <RefreshCw size={16} /> Load More
+           </button>
+        </div>
       </div>
     </div>
   );
@@ -471,6 +495,9 @@ const CreatePost = ({ onPost }) => {
     if (!image) return;
     setLoading(true);
     setTimeout(() => {
+      // Extract hashtags from caption
+      const extractedTags = caption.match(/#\w+/g)?.map(tag => tag.substring(1).toLowerCase()) || [];
+      
       const newPost = {
         id: `p_${Date.now()}`,
         userId: 'u_me',
@@ -478,7 +505,7 @@ const CreatePost = ({ onPost }) => {
         caption: caption,
         likes: 0,
         comments: 0,
-        tags: [],
+        tags: extractedTags, // Add extracted tags here
         timestamp: 'Just now'
       };
       onPost(newPost);
@@ -743,4 +770,3 @@ const SettingItem = ({ icon: Icon, label, value, toggle }) => (
     </div>
   </div>
 );
-```
